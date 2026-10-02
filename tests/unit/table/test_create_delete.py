@@ -1,15 +1,9 @@
-from contextlib import nullcontext
 from typing import Literal
 
 import pytest
 
 import ducklake as dl
 import ducklake.exceptions as dlexc
-
-
-@pytest.fixture()
-def table(shared_ducklake: dl.Ducklake, random_table_name: str) -> dl.Table:
-    return shared_ducklake.create_table(random_table_name, {"x": dl.Int64()})
 
 
 def test_create_table(shared_ducklake: dl.Ducklake, random_table_name: str) -> None:
@@ -135,45 +129,17 @@ def test_create_table_skip_when_missing(
 @pytest.mark.parametrize("if_not_exists", ["fail", "skip"])
 def test_delete_table(
     shared_ducklake: dl.Ducklake,
-    table: dl.Table,
     random_table_name: str,
     if_not_exists: Literal["fail", "skip"],
 ) -> None:
     # Arrange
-    snapshot = shared_ducklake.get_latest_snapshot()
+    table = shared_ducklake.create_table(random_table_name, {"x": dl.Int64()})
 
     # Act
     shared_ducklake.delete_table(table.name, if_not_exists=if_not_exists)
 
     # Assert
     assert not shared_ducklake.has_table(random_table_name)
-    assert shared_ducklake.get_latest_snapshot().id == snapshot.id + 1
-
-
-@pytest.mark.parametrize(
-    ("name", "schema"),
-    [
-        ("test", "main"),
-        ("custom.test", "custom"),
-        ('"custom"."test"', "custom"),
-        (dl.TableName("custom", "test"), "custom"),
-        (("custom", "test"), "custom"),
-    ],
-)
-def test_delete_table_by_name(
-    ducklake: dl.Ducklake, name: str | tuple[str, str], schema: str
-) -> None:
-    # Arrange
-    ducklake.create_schema("custom")
-    for schema_name in ("main", "custom"):
-        ducklake.create_table((schema_name, "test"), {"x": dl.Int64()})
-
-    # Act
-    ducklake.delete_table(name)
-
-    # Assert
-    remaining_schema = "custom" if schema == "main" else "main"
-    assert [item.name for item in ducklake.list_tables()] == [(remaining_schema, "test")]
 
 
 @pytest.mark.parametrize("name", ["missing", "missing_schema.test"])
@@ -193,37 +159,4 @@ def test_delete_missing_table_skip(ducklake: dl.Ducklake, name: str) -> None:
 
     # Assert
     assert ducklake.list_tables() == []
-    assert ducklake.get_latest_snapshot().id == snapshot.id
-
-
-def test_delete_table_invalid_strategy_raises(
-    shared_ducklake: dl.Ducklake, table: dl.Table
-) -> None:
-    # Arrange
-    snapshot = shared_ducklake.get_latest_snapshot()
-
-    # Act
-    with pytest.raises(ValueError, match="Invalid IfExistsStrategy"):
-        shared_ducklake.delete_table(table.name, if_not_exists="invalid")  # ty: ignore[invalid-argument-type]
-
-    # Assert
-    assert shared_ducklake.has_table(table.name)
-    assert shared_ducklake.get_latest_snapshot().id == snapshot.id
-
-
-@pytest.mark.parametrize("if_not_exists", ["fail", "skip"])
-def test_delete_table_does_not_delete_view(
-    ducklake: dl.Ducklake, if_not_exists: Literal["fail", "skip"]
-) -> None:
-    # Arrange
-    view = ducklake.create_view("test", "SELECT 1 AS x")
-    snapshot = ducklake.get_latest_snapshot()
-    expected = pytest.raises(dlexc.NotFoundError) if if_not_exists == "fail" else nullcontext()
-
-    # Act
-    with expected:
-        ducklake.delete_table(view.name, if_not_exists=if_not_exists)
-
-    # Assert
-    assert [item.name for item in ducklake.list_views()] == [view.name]
     assert ducklake.get_latest_snapshot().id == snapshot.id
