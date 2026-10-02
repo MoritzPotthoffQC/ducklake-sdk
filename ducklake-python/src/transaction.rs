@@ -84,6 +84,16 @@ impl PyTransaction {
             .map_err(error::into_pyerr)
     }
 
+    fn delete_view(
+        &mut self,
+        name: Wrap<ducklake::TableName>,
+        if_not_exists: Wrap<ducklake::IfExistsStrategy>,
+    ) -> PyResult<()> {
+        self.tx()
+            .delete_view(name.0, if_not_exists.0)
+            .map_err(error::into_pyerr)
+    }
+
     fn list_schemas(&mut self) -> Vec<String> {
         self.tx().list_schemas()
     }

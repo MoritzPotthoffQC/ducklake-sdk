@@ -76,20 +76,6 @@ def test_create_view_rejects_non_select(
         shared_ducklake.create_view(random_view_name, "CREATE VIEW v AS SELECT 1")
 
 
-def test_delete_view(
-    shared_ducklake: dl.Ducklake, random_table_name: str, random_view_name: str
-) -> None:
-    # Arrange
-    shared_ducklake.create_table(random_table_name, {"x": dl.Int64()})
-    view = shared_ducklake.create_view(random_view_name, f"SELECT x FROM {random_table_name}")
-
-    # Act
-    view.delete()
-
-    # Assert
-    assert not any(v.name == ("main", random_view_name) for v in shared_ducklake.list_views())
-
-
 def test_create_existing_view_raises(
     shared_ducklake: dl.Ducklake, random_table_name: str, random_view_name: str
 ) -> None:

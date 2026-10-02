@@ -18,7 +18,6 @@ pub use table::TransactionTable;
 use transaction_changes::TransactionChanges;
 pub(crate) use typedefs::TransferDataFile;
 use typedefs::*;
-pub use view::TransactionView;
 
 use super::catalog::Catalog;
 use crate::caches::{Metadata, Snapshot, SnapshotCache, SnapshotInfo};

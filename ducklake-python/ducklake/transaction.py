@@ -166,6 +166,28 @@ class Transaction:
         """
         self._pytx.delete_table(name, if_not_exists)
 
+    def delete_view(
+        self,
+        name: str | tuple[str, str] | TableName,
+        *,
+        if_not_exists: Literal["fail", "skip"] = "fail",
+    ) -> None:
+        """Delete an existing view from the catalog.
+
+        The deletion only becomes visible once the transaction is committed.
+
+        Args:
+            name: The name of the view to delete. If a string is provided, the schema is
+                optional and defaults to "main".
+            if_not_exists: The strategy to apply if the view (or its schema) does not exist.
+                "fail" raises a :class:`~ducklake.exceptions.NotFoundError`, while "skip"
+                leaves the catalog unchanged.
+
+        Raises:
+            NotFoundError: If the view does not exist and `if_not_exists` is "fail".
+        """
+        self._pytx.delete_view(name, if_not_exists)
+
     def commit(self) -> None:
         self._pytx.commit()
 
