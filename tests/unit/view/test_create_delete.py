@@ -1,7 +1,15 @@
+from contextlib import nullcontext
+from typing import Literal
+
 import pytest
 
 import ducklake as dl
 import ducklake.exceptions as dlexc
+
+
+@pytest.fixture()
+def view(shared_ducklake: dl.Ducklake, random_view_name: str) -> dl.View:
+    return shared_ducklake.create_view(random_view_name, "SELECT 1 AS x")
 
 
 def test_create_view(
@@ -172,3 +180,98 @@ def test_view_repr(ducklake: dl.Ducklake, random_table_name: str, random_view_na
 
     # Assert
     assert actual == f"View(schema='main', name='{random_view_name}')"
+
+
+@pytest.mark.parametrize("if_not_exists", ["fail", "skip"])
+def test_delete_view(
+    shared_ducklake: dl.Ducklake,
+    view: dl.View,
+    random_view_name: str,
+    if_not_exists: Literal["fail", "skip"],
+) -> None:
+    # Arrange
+    snapshot = shared_ducklake.get_latest_snapshot()
+
+    # Act
+    shared_ducklake.delete_view(view.name, if_not_exists=if_not_exists)
+
+    # Assert
+    assert ("main", random_view_name) not in {item.name for item in shared_ducklake.list_views()}
+    assert shared_ducklake.get_latest_snapshot().id == snapshot.id + 1
+
+
+@pytest.mark.parametrize(
+    ("name", "schema"),
+    [
+        ("test", "main"),
+        ("custom.test", "custom"),
+        ('"custom"."test"', "custom"),
+        (dl.TableName("custom", "test"), "custom"),
+        (("custom", "test"), "custom"),
+    ],
+)
+def test_delete_view_by_name(
+    ducklake: dl.Ducklake, name: str | tuple[str, str], schema: str
+) -> None:
+    # Arrange
+    ducklake.create_schema("custom")
+    for schema_name in ("main", "custom"):
+        ducklake.create_view((schema_name, "test"), "SELECT 1 AS x")
+
+    # Act
+    ducklake.delete_view(name)
+
+    # Assert
+    remaining_schema = "custom" if schema == "main" else "main"
+    assert [item.name for item in ducklake.list_views()] == [(remaining_schema, "test")]
+
+
+@pytest.mark.parametrize("name", ["missing", "missing_schema.test"])
+def test_delete_missing_view_raises(ducklake: dl.Ducklake, name: str) -> None:
+    # Act & Assert
+    with pytest.raises(dlexc.NotFoundError):
+        ducklake.delete_view(name)
+
+
+@pytest.mark.parametrize("name", ["missing", "missing_schema.test"])
+def test_delete_missing_view_skip(ducklake: dl.Ducklake, name: str) -> None:
+    # Arrange
+    snapshot = ducklake.get_latest_snapshot()
+
+    # Act
+    ducklake.delete_view(name, if_not_exists="skip")
+
+    # Assert
+    assert ducklake.list_views() == []
+    assert ducklake.get_latest_snapshot().id == snapshot.id
+
+
+def test_delete_view_invalid_strategy_raises(shared_ducklake: dl.Ducklake, view: dl.View) -> None:
+    # Arrange
+    snapshot = shared_ducklake.get_latest_snapshot()
+
+    # Act
+    with pytest.raises(ValueError, match="Invalid IfExistsStrategy"):
+        shared_ducklake.delete_view(view.name, if_not_exists="invalid")  # ty: ignore[invalid-argument-type]
+
+    # Assert
+    assert view.name in {item.name for item in shared_ducklake.list_views()}
+    assert shared_ducklake.get_latest_snapshot().id == snapshot.id
+
+
+@pytest.mark.parametrize("if_not_exists", ["fail", "skip"])
+def test_delete_view_does_not_delete_table(
+    ducklake: dl.Ducklake, if_not_exists: Literal["fail", "skip"]
+) -> None:
+    # Arrange
+    table = ducklake.create_table("test", {"x": dl.Int64()})
+    snapshot = ducklake.get_latest_snapshot()
+    expected = pytest.raises(dlexc.NotFoundError) if if_not_exists == "fail" else nullcontext()
+
+    # Act
+    with expected:
+        ducklake.delete_view(table.name, if_not_exists=if_not_exists)
+
+    # Assert
+    assert [item.name for item in ducklake.list_tables()] == [table.name]
+    assert ducklake.get_latest_snapshot().id == snapshot.id

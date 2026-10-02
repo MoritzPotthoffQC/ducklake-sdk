@@ -1,9 +1,16 @@
 import uuid
+from contextlib import nullcontext
+from typing import Literal
 
 import pytest
 
 import ducklake as dl
 import ducklake.exceptions as dlexc
+
+
+@pytest.fixture()
+def table(shared_ducklake: dl.Ducklake, random_table_name: str) -> dl.Table:
+    return shared_ducklake.create_table(random_table_name, {"x": dl.Int64()})
 
 
 def test_create_table(shared_ducklake: dl.Ducklake, random_table_name: str) -> None:
@@ -129,3 +136,75 @@ def test_list_tables_reflects_transaction_changes(
     assert [table.name for table in schema_tables] == [
         dl.TableName(random_schema_name, random_table_name)
     ]
+
+
+@pytest.mark.parametrize("if_not_exists", ["fail", "skip"])
+def test_delete_table_twice(
+    shared_ducklake: dl.Ducklake,
+    table: dl.Table,
+    random_table_name: str,
+    if_not_exists: Literal["fail", "skip"],
+) -> None:
+    # Arrange
+    expected = pytest.raises(dlexc.NotFoundError) if if_not_exists == "fail" else nullcontext()
+
+    # Act
+    with shared_ducklake.transaction() as tx:
+        tx.delete_table(table.name)
+        with expected:
+            tx.delete_table(table.name, if_not_exists=if_not_exists)
+
+    # Assert
+    assert not shared_ducklake.has_table(random_table_name)
+
+
+def test_delete_table_not_visible_before_commit(
+    shared_ducklake: dl.Ducklake, table: dl.Table, random_table_name: str
+) -> None:
+    # Arrange
+    tx = shared_ducklake.transaction()
+
+    # Act
+    tx.delete_table(table.name)
+
+    # Assert
+    assert shared_ducklake.has_table(table.name)
+    tx.commit()
+    assert not shared_ducklake.has_table(random_table_name)
+
+
+@pytest.mark.parametrize("missing_name", ["missing", "missing_schema.test"])
+def test_operations_after_skipped_delete_table(
+    shared_ducklake: dl.Ducklake,
+    table: dl.Table,
+    random_table_name: str,
+    missing_name: str,
+) -> None:
+    # Arrange
+    created_name = random_table_name + "_created"
+
+    # Act
+    with shared_ducklake.transaction() as tx:
+        tx.delete_table(missing_name, if_not_exists="skip")
+        tx.create_table(created_name, {"x": dl.Int64()})
+        tx.delete_table(table.name, if_not_exists="skip")
+
+    # Assert
+    assert shared_ducklake.has_table(created_name)
+    assert not shared_ducklake.has_table(random_table_name)
+
+
+def test_delete_table_rolled_back_on_exception(
+    shared_ducklake: dl.Ducklake, table: dl.Table
+) -> None:
+    # Arrange
+    snapshot = shared_ducklake.get_latest_snapshot()
+
+    # Act
+    with pytest.raises(RuntimeError), shared_ducklake.transaction() as tx:
+        tx.delete_table(table.name)
+        raise RuntimeError
+
+    # Assert
+    assert shared_ducklake.has_table(table.name)
+    assert shared_ducklake.get_latest_snapshot().id == snapshot.id
