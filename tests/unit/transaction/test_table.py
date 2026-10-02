@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 import pytest
 
@@ -129,3 +130,20 @@ def test_list_tables_reflects_transaction_changes(
     assert [table.name for table in schema_tables] == [
         dl.TableName(random_schema_name, random_table_name)
     ]
+
+
+@pytest.mark.parametrize("if_not_exists", ["fail", "skip"])
+def test_delete_table(
+    shared_ducklake: dl.Ducklake,
+    random_table_name: str,
+    if_not_exists: Literal["fail", "skip"],
+) -> None:
+    # Arrange
+    table = shared_ducklake.create_table(random_table_name, {"x": dl.Int64()})
+
+    # Act
+    with shared_ducklake.transaction() as tx:
+        tx.delete_table(table.name, if_not_exists=if_not_exists)
+
+    # Assert
+    assert not shared_ducklake.has_table(random_table_name)
