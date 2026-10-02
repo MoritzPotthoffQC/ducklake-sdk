@@ -74,6 +74,16 @@ impl PyTransaction {
             .map_err(error::into_pyerr)
     }
 
+    fn delete_table(
+        &mut self,
+        name: Wrap<ducklake::TableName>,
+        if_not_exists: Wrap<ducklake::IfExistsStrategy>,
+    ) -> PyResult<()> {
+        self.tx()
+            .delete_table(name.0, if_not_exists.0)
+            .map_err(error::into_pyerr)
+    }
+
     fn list_schemas(&mut self) -> Vec<String> {
         self.tx().list_schemas()
     }
@@ -293,7 +303,9 @@ impl PyTransactionTable {
 
     fn delete(&mut self) -> PyResult<()> {
         let table = self.table.clone();
-        self.tx().delete_table(&table).map_err(error::into_pyerr)
+        self.tx()
+            .delete_table(table, ducklake::IfExistsStrategy::Fail)
+            .map_err(error::into_pyerr)
     }
 
     fn add_tag(&mut self, key: String, value: String) -> PyResult<()> {

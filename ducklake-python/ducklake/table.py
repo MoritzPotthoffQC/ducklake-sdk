@@ -362,7 +362,8 @@ class Table:
     def delete(self) -> None:
         """Delete the table from the catalog.
 
-        After calling this method, the Table object is no longer valid.
+        After calling this method, the Table object is no longer valid. To delete a table by
+        name, potentially skipping missing tables, use :meth:`~ducklake.Ducklake.delete_table`.
         """
         self._pytable.delete()
 
