@@ -132,3 +132,29 @@ def test_match_reference_table_alter(
     table.remove_column("x")
     reference_duckdb_connection.execute("ALTER TABLE test DROP COLUMN x")
     assert_ducklake_catalogs_equal(reference_catalog_url, catalog_url)
+
+
+@pytest.mark.differential
+@pytest.mark.parametrize("use_transaction", [False, True])
+def test_match_reference_table_deletion(
+    ducklake: dl.Ducklake,
+    catalog_url: str,
+    reference_catalog_url: str,
+    reference_duckdb_connection: duckdb.DuckDBPyConnection,
+    use_transaction: bool,
+) -> None:
+    # Arrange
+    for name in ("test", "sibling"):
+        ducklake.create_table(name, {"x": dl.Int64()})
+        reference_duckdb_connection.execute(f"CREATE TABLE {name} (x BIGINT)")
+
+    # Act
+    if use_transaction:
+        with ducklake.transaction() as tx:
+            tx.delete_table("test")
+    else:
+        ducklake.delete_table("test")
+    reference_duckdb_connection.execute("DROP TABLE test")
+
+    # Assert
+    assert_ducklake_catalogs_equal(reference_catalog_url, catalog_url)

@@ -70,31 +70,6 @@ class Transaction:
         """
         self._pytx.delete_schema(name, cascade, if_not_exists)
 
-    def delete_table(
-        self,
-        name: str | tuple[str, str] | TableName,
-        *,
-        if_not_exists: Literal["fail", "skip"] = "fail",
-    ) -> None:
-        """Delete an existing table from the catalog.
-
-        The table is resolved against the transaction-local catalog, i.e., tables created earlier
-        in this transaction can be deleted, while tables already deleted earlier in this
-        transaction are considered missing. Views are never deleted by this method: a view name
-        is treated like a missing table.
-
-        Args:
-            name: The name of the table to delete. If a string is provided, the schema is
-                optional and defaults to "main".
-            if_not_exists: The strategy to apply if the table (or its schema) does not exist.
-                "fail" raises a :class:`~ducklake.exceptions.NotFoundError`, while "skip"
-                leaves the catalog unchanged.
-
-        Raises:
-            NotFoundError: If the table does not exist and `if_not_exists` is "fail".
-        """
-        self._pytx.delete_table(name, if_not_exists)
-
     def list_schemas(self) -> list[str]:
         """List all schemas in the transaction-local catalog."""
         return self._pytx.list_schemas()
@@ -168,6 +143,28 @@ class Transaction:
         return TransactionTable._from_pytransaction_table(
             pytransaction_table, self._storage_options
         )
+
+    def delete_table(
+        self,
+        name: str | tuple[str, str] | TableName,
+        *,
+        if_not_exists: Literal["fail", "skip"] = "fail",
+    ) -> None:
+        """Delete an existing table from the catalog.
+
+        The deletion only becomes visible once the transaction is committed.
+
+        Args:
+            name: The name of the table to delete. If a string is provided, the schema is
+                optional and defaults to "main".
+            if_not_exists: The strategy to apply if the table (or its schema) does not exist.
+                "fail" raises a :class:`~ducklake.exceptions.NotFoundError`, while "skip"
+                leaves the catalog unchanged.
+
+        Raises:
+            NotFoundError: If the table does not exist and `if_not_exists` is "fail".
+        """
+        self._pytx.delete_table(name, if_not_exists)
 
     def commit(self) -> None:
         self._pytx.commit()
@@ -423,15 +420,6 @@ class TransactionTable:
             schema: The new schema of the table.
         """
         self._pytxtable.update_schema(schema.columns)
-
-    def delete(self) -> None:
-        """Delete the table from the catalog.
-
-        After calling this method, the `TransactionTable` object is no longer valid. To delete a
-        table by name, potentially skipping missing tables, use
-        :meth:`~ducklake.transaction.Transaction.delete_table`.
-        """
-        self._pytxtable.delete()
 
     def add_tag(self, key: str, value: str) -> None:
         """Add a new tag to the table.

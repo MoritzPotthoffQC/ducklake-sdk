@@ -192,18 +192,8 @@ impl<'a> Transaction<'a> {
 
 /* ------------------------------------------- DELETE ------------------------------------------ */
 
-impl<'tx, 'a> TransactionTable<'tx, 'a> {
-    /// Delete the table.
-    pub fn delete(self) -> DucklakeResult<()> {
-        self.tx.delete_table_inner(&self.name, false)
-    }
-}
-
 impl<'a> Transaction<'a> {
     /// Delete the table with the provided name from the catalog.
-    ///
-    /// A table counts as missing if either the table or its schema does not exist. Views are
-    /// never deleted by this method: a view name is treated like a missing table.
     pub fn delete_table(
         &mut self,
         name: impl TryInto<TableName, Error = impl Into<DucklakeError>>,

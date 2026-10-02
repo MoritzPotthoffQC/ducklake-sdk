@@ -38,17 +38,6 @@ def test_table_equality(shared_ducklake: dl.Ducklake, random_table_name: str) ->
     assert created == fetched
 
 
-def test_delete_table(shared_ducklake: dl.Ducklake, random_table_name: str) -> None:
-    # Arrange
-    table = shared_ducklake.create_table(random_table_name, {"x": dl.Int64()})
-
-    # Act
-    table.delete()
-
-    # Assert
-    assert not any(t.name == ("main", random_table_name) for t in shared_ducklake.list_tables())
-
-
 def test_table_repr(
     ducklake: dl.Ducklake, random_schema_name: str, random_table_name: str
 ) -> None:

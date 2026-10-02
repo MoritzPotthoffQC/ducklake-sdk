@@ -301,13 +301,6 @@ impl PyTransactionTable {
         .map_err(error::into_pyerr)
     }
 
-    fn delete(&mut self) -> PyResult<()> {
-        let table = self.table.clone();
-        self.tx()
-            .delete_table(table, ducklake::IfExistsStrategy::Fail)
-            .map_err(error::into_pyerr)
-    }
-
     fn add_tag(&mut self, key: String, value: String) -> PyResult<()> {
         let table = self.table.clone();
         self.tx()

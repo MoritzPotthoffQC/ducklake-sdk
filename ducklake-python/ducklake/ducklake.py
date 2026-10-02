@@ -241,28 +241,6 @@ class Ducklake:
         """
         self._pyducklake.delete_schema(name, cascade, if_not_exists)
 
-    def delete_table(
-        self,
-        name: str | tuple[str, str] | TableName,
-        *,
-        if_not_exists: Literal["fail", "skip"] = "fail",
-    ) -> None:
-        """Delete an existing table from the catalog.
-
-        Views are never deleted by this method: a view name is treated like a missing table.
-
-        Args:
-            name: The name of the table to delete. If a string is provided, the schema is
-                optional and defaults to "main".
-            if_not_exists: The strategy to apply if the table (or its schema) does not exist.
-                "fail" raises a :class:`~ducklake.exceptions.NotFoundError`, while "skip"
-                leaves the catalog unchanged.
-
-        Raises:
-            NotFoundError: If the table does not exist and `if_not_exists` is "fail".
-        """
-        self._pyducklake.delete_table(name, if_not_exists)
-
     # ------------------------------------------ TABLES ----------------------------------------- #
 
     def create_table(
@@ -311,6 +289,26 @@ class Ducklake:
             if_exists=if_exists,
         )
         return self._wrap_table(pytable)
+
+    def delete_table(
+        self,
+        name: str | tuple[str, str] | TableName,
+        *,
+        if_not_exists: Literal["fail", "skip"] = "fail",
+    ) -> None:
+        """Delete an existing table from the catalog.
+
+        Args:
+            name: The name of the table to delete. If a string is provided, the schema is
+                optional and defaults to "main".
+            if_not_exists: The strategy to apply if the table (or its schema) does not exist.
+                "fail" raises a :class:`~ducklake.exceptions.NotFoundError`, while "skip"
+                leaves the catalog unchanged.
+
+        Raises:
+            NotFoundError: If the table does not exist and `if_not_exists` is "fail".
+        """
+        self._pyducklake.delete_table(name, if_not_exists)
 
     def table(self, name: str | tuple[str, str] | TableName) -> Table:
         """Read a table from the catalog.
