@@ -192,17 +192,21 @@ impl<'a> Transaction<'a> {
 
 /* ------------------------------------------- DELETE ------------------------------------------ */
 
-impl<'tx, 'a> TransactionTable<'tx, 'a> {
-    /// Delete the table.
-    pub fn delete(self) -> DucklakeResult<()> {
-        self.tx.delete_table(&self.name)
-    }
-}
-
 impl<'a> Transaction<'a> {
-    #[visibility_if(feature = "python", pub)]
-    pub(crate) fn delete_table(&mut self, name: &TableName) -> DucklakeResult<()> {
-        self.delete_table_inner(name, false)
+    /// Delete the table with the provided name from the catalog.
+    pub fn delete_table(
+        &mut self,
+        name: impl TryInto<TableName, Error = impl Into<DucklakeError>>,
+        if_not_exists: IfExistsStrategy,
+    ) -> DucklakeResult<()> {
+        let name = name.try_into().map_err(|e| e.into())?;
+        // If the table does not exist and the strategy is specified accordingly, simply return
+        // without making any changes
+        if matches!(if_not_exists, IfExistsStrategy::Skip) && self.catalog().table(&name).is_err()
+        {
+            return Ok(());
+        }
+        self.delete_table_inner(&name, false)
     }
 
     pub(crate) fn delete_table_transferring_file_ownership(
