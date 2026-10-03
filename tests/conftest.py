@@ -1,10 +1,17 @@
+from __future__ import annotations
+
 import tempfile
-from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 import ducklake as dl
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    import sqlalchemy as sa
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -96,3 +103,30 @@ def shared_ducklake(catalog: str, storage: str) -> Iterator[dl.Ducklake]:
         dl.create(catalog_url, data_path=storage_path) as ducklake,
     ):
         yield ducklake
+
+
+# -------------------------------------- SQLALCHEMY ENGINE -------------------------------------- #
+
+
+@pytest.fixture()
+def catalog_engine(catalog_url: str) -> Iterator[sa.Engine]:
+    import sqlalchemy as sa
+
+    engine = sa.create_engine(catalog_url)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def shared_catalog_engine(shared_ducklake: dl.Ducklake) -> Iterator[sa.Engine]:
+    import sqlalchemy as sa
+
+    engine = sa.create_engine(
+        shared_ducklake._connection_args.render_as_string(hide_password=False)
+    )
+    try:
+        yield engine
+    finally:
+        engine.dispose()
