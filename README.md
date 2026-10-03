@@ -150,7 +150,7 @@ See the DuckLake [release calendar](https://ducklake.select/release_calendar) fo
 
 - [ ] `GEOMETRY` data type
 - [ ] Mapping columns by name (Parquet files must currently carry field IDs)
-- [ ] Macros, sort info, and encrypted files
+- [ ] Macros and encrypted files
 
 ### Known limitations
 

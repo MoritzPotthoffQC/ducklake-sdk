@@ -277,6 +277,7 @@ pub(crate) enum Change {
         columns: Vec<crate::Column>,
         retired_columns: Vec<crate::spec::DucklakeColumn>,
         partition_columns: Option<Vec<crate::PartitionColumn>>,
+        sort_info: Option<Vec<crate::SortExpression>>,
         path: io::DucklakePath,
         tags: Option<Vec<crate::Tag>>,
     },
@@ -296,6 +297,10 @@ pub(crate) enum Change {
         table_ref: TableRef,
         partition_column_refs: Option<Vec<ColumnRef>>,
         partition_columns: Option<Vec<crate::PartitionColumn>>,
+    },
+    UpdateTableSortInfo {
+        table_ref: TableRef,
+        expressions: Option<Vec<crate::SortExpression>>,
     },
     DeleteTable {
         table_ref: TableRef,
@@ -360,6 +365,7 @@ impl Change {
                 name: name.to_owned(),
             },
             UpdateTablePartitioning { table_ref, .. }
+            | UpdateTableSortInfo { table_ref, .. }
             | AddTableTag { table_ref, .. }
             | RemoveTableTag { table_ref, .. } => AppliedChange::AlteredTable {
                 id: state.table_id(*table_ref),
@@ -415,6 +421,7 @@ impl Change {
                 columns,
                 retired_columns,
                 partition_columns,
+                sort_info,
                 path,
                 tags,
             } => executors::create_table(
@@ -428,6 +435,7 @@ impl Change {
                 columns,
                 retired_columns,
                 partition_columns,
+                sort_info,
                 path,
                 tags,
             ),
@@ -452,6 +460,10 @@ impl Change {
                 partition_column_refs,
                 partition_columns,
             ),
+            UpdateTableSortInfo {
+                table_ref,
+                expressions,
+            } => executors::update_table_sort_info(changes, state, table_ref, expressions),
             DeleteTable {
                 table_ref,
                 detach_files,
@@ -523,6 +535,7 @@ impl Change {
             | CreateTable { .. }
             | RenameTable { .. }
             | UpdateTablePartitioning { .. }
+            | UpdateTableSortInfo { .. }
             | DeleteTable { .. }
             | AddTableTag { .. }
             | RemoveTableTag { .. }
@@ -544,6 +557,7 @@ impl Change {
             CreateTable { table_ref, .. }
             | RenameTable { table_ref, .. }
             | UpdateTablePartitioning { table_ref, .. }
+            | UpdateTableSortInfo { table_ref, .. }
             | DeleteTable { table_ref, .. }
             | AddTableTag { table_ref, .. }
             | RemoveTableTag { table_ref, .. }
@@ -579,6 +593,7 @@ impl Change {
             //  affect caching of the catalog, we do not want to consider changes that do not
             //  affect the schema (i.e. how data is stored) of individual tables here.
             | DeleteTable { .. }
+            | UpdateTableSortInfo { .. }
             | AddTableColumnTag { .. }
             | RemoveTableColumnTag { .. }
             | AddTableTag { .. }
@@ -597,6 +612,7 @@ impl Change {
             | CreateTable { .. }
             | RenameTable { .. }
             | UpdateTablePartitioning { .. }
+            | UpdateTableSortInfo { .. }
             | DeleteTable { .. }
             | AddTableTag { .. }
             | RemoveTableTag { .. }
@@ -630,6 +646,9 @@ enum HashableChange {
         table_ref: TableRef,
     },
     UpdateTablePartitioning {
+        table_ref: TableRef,
+    },
+    UpdateTableSortInfo {
         table_ref: TableRef,
     },
     DeleteTable {
@@ -697,6 +716,9 @@ impl From<&Change> for HashableChange {
                 table_ref: *table_ref,
             },
             Change::UpdateTablePartitioning { table_ref, .. } => UpdateTablePartitioning {
+                table_ref: *table_ref,
+            },
+            Change::UpdateTableSortInfo { table_ref, .. } => UpdateTableSortInfo {
                 table_ref: *table_ref,
             },
             Change::DeleteTable { table_ref, .. } => DeleteTable {
